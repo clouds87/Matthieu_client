@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">Matthieu</string>
     <string name="action_about">About</string>
+    <string name="action_content">Content</string>
+    <string name="bwd_btn">INDIETRO</string>
+    <string name="neutral_btn">FOLLE</string>
+    <string name="fwd_btn">AVANTI</string>
+    <string name="debug_txt"></string>
 </resources>

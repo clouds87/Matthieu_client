@@ -14,9 +14,11 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
-
+import android.widget.Toast;
+import android.view.Gravity;
 import java.io.DataOutputStream;
 import java.net.Socket;
 
@@ -25,8 +27,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final String MATTHIEU_SERVER_IP_ADDR = "192.168.4.1";
     private final int MATTHIEU_SERVER_IP_PORT = 80;
     private final int UPDATE_PERIOD_MS = 100;
+    private String updateString;
 
     private Button connectBtn;
+    private Button bwdBtn;
+    private Button neutralBtn;
+    private Button fwdBtn;
+    private TextureView debugTxt;
+
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
 
@@ -38,8 +46,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     // Member variables for the communication from main (GUI) thread towards network thread
     private boolean boatCmdFlag = false;
-    private int boatDirection = 0;
-    private int boatSpeed = 0;
+    private int boatDirection = 3;
+    private int boatSpeed = 4;
 
     private Socket clientSocket;
     private DataOutputStream outToServer;
@@ -64,6 +72,37 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
+        bwdBtn = (Button) findViewById(R.id.bwd_btn);
+        bwdBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (boatSpeed > 1) {
+                    boatSpeed = boatSpeed - 1;
+                    boatCmdFlag = true;
+                }
+            }
+        });
+
+        fwdBtn = (Button) findViewById(R.id.fwd_btn);
+        fwdBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (boatSpeed < 7) {
+                    boatSpeed = boatSpeed + 1;
+                    boatCmdFlag = true;
+                }
+            }
+        });
+
+        neutralBtn = (Button) findViewById(R.id.neutral_btn);
+        neutralBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boatSpeed = 4;
+                boatCmdFlag = true;
+            }
+        });
+
         // Define a sensor manager and an accelerometer sensor to let the user control the steering
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -85,21 +124,35 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public final void onSensorChanged(SensorEvent event) {
         // Many sensors return 3 values, one for each axis.
         // TODO: set boatDirection and enable boatCmdFlag
+        String MYACCY;
         float accY;
         accY = event.values[1];
+
+
     }
 
     private Runnable guiUpdate = new Runnable() {
         @Override
         public void run() {
-            if(connectReq && connectAck)
+
+            bwdBtn.setVisibility(View.INVISIBLE);
+            neutralBtn.setVisibility(View.INVISIBLE);
+            fwdBtn.setVisibility(View.INVISIBLE);
+            boatCmdFlag = false;
+
+            if (connectReq && connectAck) {
                 connectBtn.setBackgroundColor(Color.GREEN);
-            if(connectReq && !connectAck)
+                bwdBtn.setVisibility(View.VISIBLE);
+                neutralBtn.setVisibility(View.VISIBLE);
+                fwdBtn.setVisibility(View.VISIBLE);
+            }
+            if (connectReq && !connectAck)
                 connectBtn.setBackgroundColor(Color.YELLOW);
-            if(!connectReq && connectAck)
+            if (!connectReq && connectAck)
                 connectBtn.setBackgroundColor(Color.YELLOW);
-            if(!connectReq && !connectAck)
+            if (!connectReq && !connectAck)
                 connectBtn.setBackgroundColor(Color.RED);
+
             mainHandler.postDelayed(guiUpdate, UPDATE_PERIOD_MS);
         }
     };
@@ -109,10 +162,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Runnable networkUpdate = new Runnable() {
         @Override
         public void run() {
-            String updateString;
-            while(true) {
-                if(connectReq) {
-                    if(connectAck) {
+
+            while (true) {
+                if (connectReq) {
+                    if (connectAck) {
                         // TODO: build and send update string only if needed
                         updateString = "";
                         updateString = updateString + "\\";
@@ -120,14 +173,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         updateString = updateString + ("/");
                         try {
                             outToServer.writeBytes(updateString);
-                            Log.d("UD_MSG", updateString);
+                            Log.d("UPD_MSG", updateString);
                         } catch (Exception e) {
-                            Log.d("EXC_ERR",e.getMessage());
+                            Log.d("EXC_ERR", e.getMessage());
                         }
                     } else {
                         try {
                             clientSocket = new Socket(MATTHIEU_SERVER_IP_ADDR, MATTHIEU_SERVER_IP_PORT);
-                            if(clientSocket != null)
+                            if (clientSocket != null)
                                 outToServer = new DataOutputStream(clientSocket.getOutputStream());
                             connectAck = true;
                         } catch (Exception e) {
@@ -161,16 +214,29 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_about) {
-            // TODO: add a simple dialog with app name, version and authors
+        int id = item.getItemId();
+        String actionTxt;
+
+        if (id == R.id.action_content) {
+            actionTxt = "";
+            actionTxt = actionTxt + "This app allows the total control";
+            actionTxt = actionTxt + " of a dynamic naval model dedicated";
+            actionTxt = actionTxt + " to a person very dear to us!";
+            Toast content = Toast.makeText(MainActivity.this, actionTxt, Toast.LENGTH_LONG);
+            content.setGravity(Gravity.VERTICAL_GRAVITY_MASK, 0, 0);
+            content.show();
         }
 
+        if (id == R.id.action_about) {
+            actionTxt = "";
+            actionTxt = actionTxt + "App name : Matthieu" + "\n";
+            actionTxt = actionTxt + "Version  : 1.0" + "\n";
+            actionTxt = actionTxt + "Authors  : Columbo's son and father";
+            Toast about = Toast.makeText(MainActivity.this, actionTxt, Toast.LENGTH_LONG);
+            about.setGravity(Gravity.DISPLAY_CLIP_VERTICAL, 0, 0);
+            about.show();
+        }
         return super.onOptionsItemSelected(item);
     }
 
@@ -184,5 +250,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onPause() {
         super.onPause();
         mSensorManager.unregisterListener(this);
+
+        updateString = "";
+        updateString = updateString + "\\";
+        updateString = updateString + "A0D0";
+        updateString = updateString + ("/");
+        try {
+            outToServer.writeBytes(updateString);
+            Log.d("UPD_MSG", updateString);
+        } catch (Exception e) {
+            Log.d("EXC_ERR", e.getMessage());
+        }
+
+        try {
+            clientSocket.close();
+            connectAck = false;
+        } catch (Exception e) {
+            Log.d("EXC_ERR", e.getMessage());
+        }
     }
 }
