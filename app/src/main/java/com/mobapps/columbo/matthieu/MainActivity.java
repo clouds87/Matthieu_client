@@ -9,6 +9,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v4.app.NotificationCompatSideChannelService;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
@@ -17,6 +18,7 @@ import android.view.MenuItem;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.view.Gravity;
 import java.io.DataOutputStream;
@@ -33,7 +35,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Button bwdBtn;
     private Button neutralBtn;
     private Button fwdBtn;
-    private TextureView debugTxt;
+    private TextView debugTxt;
 
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
@@ -46,8 +48,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     // Member variables for the communication from main (GUI) thread towards network thread
     private boolean boatCmdFlag = false;
-    private int boatDirection = 3;
+    private String boatDirection = "";
     private int boatSpeed = 4;
+    private String dir = "";
+    private int valore = 0;
 
     private Socket clientSocket;
     private DataOutputStream outToServer;
@@ -103,6 +107,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
+        debugTxt =(TextView)  findViewById(R.id.debug_txt);
+
         // Define a sensor manager and an accelerometer sensor to let the user control the steering
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -122,14 +128,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public final void onSensorChanged(SensorEvent event) {
-        // Many sensors return 3 values, one for each axis.
-        // TODO: set boatDirection and enable boatCmdFlag
-        String MYACCY;
+
         float accY;
-        accY = event.values[1];
-
-
-    }
+        if (connectReq && connectAck) {
+            accY = event.values[1];
+            valore = (Math.abs(Math.round(accY)));
+            if (valore > 9) valore = 9;
+            valore = Math.round(valore / 3);
+            dir = (accY < 0) ? "S" : "D";
+            if (valore == 3) {
+                valore = 2;
+            } else if (valore == 2) {
+                valore = 1;
+            } else if (valore == 1) {
+                valore = 0;
+            }
+             boatCmdFlag = true;
+        }else{
+            boatCmdFlag = false;
+        }
+     }
 
     private Runnable guiUpdate = new Runnable() {
         @Override
@@ -162,16 +180,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Runnable networkUpdate = new Runnable() {
         @Override
         public void run() {
-
+        int motore = 0;
             while (true) {
                 if (connectReq) {
                     if (connectAck) {
-                        // TODO: build and send update string only if needed
+                         if (boatSpeed >= 4) {
+                            boatDirection = "A";        // avanti
+                        } else{
+                            boatDirection = "I";        // indietro
+                        }
+                        if (boatSpeed == 4){
+                            motore = 0;     //spento
+                        }else if(boatSpeed == 5){
+                            motore = 1;     //piano
+                        }else if(boatSpeed == 6){
+                            motore = 2;     //mezza
+                        }else if(boatSpeed == 7){
+                            motore = 3;     //tutta
+                        }else if(boatSpeed == 3){
+                            motore = 1;     //piano
+                        }else if(boatSpeed == 2){
+                            motore = 2;     //mezza
+                        }else if(boatSpeed == 1) {
+                            motore = 3;     //tutta
+                        }
                         updateString = "";
                         updateString = updateString + "\\";
-                        updateString = updateString + "A0D0";
+                        updateString = updateString + boatDirection + motore;
+                        updateString = updateString + dir + valore;
                         updateString = updateString + ("/");
-                        try {
+                         try {
                             outToServer.writeBytes(updateString);
                             Log.d("UPD_MSG", updateString);
                         } catch (Exception e) {
