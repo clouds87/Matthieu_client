@@ -9,13 +9,11 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.NotificationCompatSideChannelService;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -48,10 +46,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     // Member variables for the communication from main (GUI) thread towards network thread
     private boolean boatCmdFlag = false;
-    private String boatDirection = "";
-    private int boatSpeed = 4;
-    private String dir = "";
-    private int valore = 0;
+    private String boatFBAction = "F";
+    private int    boatFBGrade  = 0;
+    private String boatLRAction = "L";
+    private int    boatLRGrade  = 0;
 
     private Socket clientSocket;
     private DataOutputStream outToServer;
@@ -80,10 +78,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         bwdBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (boatSpeed > 1) {
-                    boatSpeed = boatSpeed - 1;
-                    boatCmdFlag = true;
+                if (boatFBAction == "B") {
+                    if (boatFBGrade == 0) {
+                        boatFBGrade = 6;
+                    } else if (boatFBGrade == 6) {
+                        boatFBGrade = 9;
+                    }
+                } else {
+                    if (boatFBGrade == 9) {
+                        boatFBGrade = 6;
+                    } else if (boatFBGrade == 6) {
+                        boatFBGrade = 0;
+                    } else {
+                        boatFBAction = "B";
+                        boatFBGrade = 6;
+                    }
                 }
+                boatCmdFlag = true;
             }
         });
 
@@ -91,9 +102,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         fwdBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (boatSpeed < 7) {
-                    boatSpeed = boatSpeed + 1;
-                    boatCmdFlag = true;
+                if (boatFBAction == "F") {
+                    if (boatFBGrade == 0) {
+                        boatFBGrade = 6;
+                    } else if (boatFBGrade == 6) {
+                        boatFBGrade = 9;
+                    }
+                } else {
+                    if (boatFBGrade == 9) {
+                        boatFBGrade = 6;
+                    } else if (boatFBGrade == 6) {
+                        boatFBGrade = 0;
+                    } else {
+                        boatFBAction = "F";
+                        boatFBGrade = 6;
+                    }
                 }
             }
         });
@@ -102,12 +125,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         neutralBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boatSpeed = 4;
+                boatFBGrade = 0;
                 boatCmdFlag = true;
             }
         });
 
-        debugTxt =(TextView)  findViewById(R.id.debug_txt);
+        debugTxt =(TextView) findViewById(R.id.debug_txt);
 
         // Define a sensor manager and an accelerometer sensor to let the user control the steering
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -132,18 +155,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         float accY;
         if (connectReq && connectAck) {
             accY = event.values[1];
-            valore = (Math.abs(Math.round(accY)));
-            if (valore > 9) valore = 9;
-            valore = Math.round(valore / 3);
-            dir = (accY < 0) ? "S" : "D";
-            if (valore == 3) {
-                valore = 2;
-            } else if (valore == 2) {
-                valore = 1;
-            } else if (valore == 1) {
-                valore = 0;
+            boatLRGrade = (Math.abs(Math.round(accY)));
+            if (boatLRGrade > 3) {
+                boatLRGrade = 1;
+            } else {
+                boatLRGrade = 0;
             }
-             boatCmdFlag = true;
+            boatLRAction = (accY < 0) ? "L" : "R";
+            boatCmdFlag = true;
         }else{
             boatCmdFlag = false;
         }
@@ -171,6 +190,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (!connectReq && !connectAck)
                 connectBtn.setBackgroundColor(Color.RED);
 
+            debugTxt.setText("Motor: " + ((boatFBGrade != 0) ? ((boatFBAction == "F") ? "Forward" : "Backward") : "Stop"));
             mainHandler.postDelayed(guiUpdate, UPDATE_PERIOD_MS);
         }
     };
@@ -180,34 +200,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Runnable networkUpdate = new Runnable() {
         @Override
         public void run() {
-        int motore = 0;
             while (true) {
                 if (connectReq) {
                     if (connectAck) {
-                         if (boatSpeed >= 4) {
-                            boatDirection = "A";        // avanti
-                        } else{
-                            boatDirection = "I";        // indietro
-                        }
-                        if (boatSpeed == 4){
-                            motore = 0;     //spento
-                        }else if(boatSpeed == 5){
-                            motore = 1;     //piano
-                        }else if(boatSpeed == 6){
-                            motore = 2;     //mezza
-                        }else if(boatSpeed == 7){
-                            motore = 3;     //tutta
-                        }else if(boatSpeed == 3){
-                            motore = 1;     //piano
-                        }else if(boatSpeed == 2){
-                            motore = 2;     //mezza
-                        }else if(boatSpeed == 1) {
-                            motore = 3;     //tutta
-                        }
                         updateString = "";
                         updateString = updateString + "\\";
-                        updateString = updateString + boatDirection + motore;
-                        updateString = updateString + dir + valore;
+                        updateString = updateString + boatFBAction + boatFBGrade;
+                        updateString = updateString + boatLRAction + boatLRGrade;
                         updateString = updateString + ("/");
                          try {
                             outToServer.writeBytes(updateString);
@@ -269,7 +268,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (id == R.id.action_about) {
             actionTxt = "";
             actionTxt = actionTxt + "App name : Matthieu" + "\n";
-            actionTxt = actionTxt + "Version  : 1.0" + "\n";
+            actionTxt = actionTxt + "Version  : 1.1" + "\n";
             actionTxt = actionTxt + "Authors  : Columbo's son and father";
             Toast about = Toast.makeText(MainActivity.this, actionTxt, Toast.LENGTH_LONG);
             about.setGravity(Gravity.DISPLAY_CLIP_VERTICAL, 0, 0);
@@ -291,7 +290,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         updateString = "";
         updateString = updateString + "\\";
-        updateString = updateString + "A0D0";
+        updateString = updateString + "F0L0";
         updateString = updateString + ("/");
         try {
             outToServer.writeBytes(updateString);
